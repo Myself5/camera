@@ -1255,7 +1255,8 @@ QCameraVideoMemory::QCameraVideoMemory(camera_request_memory memory,
     memset(mMetadata, 0, sizeof(mMetadata));
     mMetaBufCount = 0;
     mBufType = bufType;
-    mUsage = 0;
+    //Set Default color conversion format
+    mUsage = private_handle_t::PRIV_FLAGS_ITU_R_601_FR;
 }
 
 /*===========================================================================
@@ -1293,7 +1294,7 @@ int QCameraVideoMemory::allocate(uint8_t count, size_t size, uint32_t isSecure)
         return rc;
     }
 
-    int usage = mUsage | private_handle_t::PRIV_FLAGS_ITU_R_709;
+    int usage = mUsage | private_handle_t::PRIV_FLAGS_ITU_R_601_FR;
 
     if (mBufType != CAM_STREAM_BUF_TYPE_USERPTR) {
         rc = allocateMeta(count);
@@ -1349,7 +1350,7 @@ int QCameraVideoMemory::allocateMore(uint8_t count, size_t size)
         return rc;
     }
 
-    int usage = mUsage | private_handle_t::PRIV_FLAGS_ITU_R_709;
+    int usage = mUsage | private_handle_t::PRIV_FLAGS_ITU_R_601_FR;
 
     if (mBufType != CAM_STREAM_BUF_TYPE_USERPTR) {
         for (int i = mBufferCount; i < count + mBufferCount; i ++) {
@@ -1856,6 +1857,8 @@ int32_t QCameraGrallocMemory::dequeueBuffer()
 
             mPrivateHandle[dequeuedIdx] =
                     (struct private_handle_t *)(*mBufferHandle[dequeuedIdx]);
+            //update max fps info
+            setMetaData(mPrivateHandle[dequeuedIdx], UPDATE_REFRESH_RATE, (void*)&mMaxFPS);
             mMemInfo[dequeuedIdx].main_ion_fd = open("/dev/ion", O_RDONLY);
             if (mMemInfo[dequeuedIdx].main_ion_fd < 0) {
                 ALOGE("%s: failed: could not open ion device", __func__);
@@ -1871,6 +1874,8 @@ int32_t QCameraGrallocMemory::dequeueBuffer()
                 return BAD_INDEX;
             }
 
+            setMetaData(mPrivateHandle[dequeuedIdx], UPDATE_COLOR_SPACE,
+                    &mColorSpace);
             mCameraMemory[dequeuedIdx] =
                     mGetMemory(mPrivateHandle[dequeuedIdx]->fd,
                     (size_t)mPrivateHandle[dequeuedIdx]->size,
